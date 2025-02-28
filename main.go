@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -20,7 +21,6 @@ var (
 	fileName      string
 	verboseLevel  bool
 	resourceBlock string
-	outputFile    string
 
 	VALID_COMMANDS []string = []string{"list", "extract"}
 )
@@ -34,7 +34,6 @@ func init() {
 	flag.StringVar(&fileName, "f", "", "path of terraform file")
 	flag.BoolVar(&verboseLevel, "v", false, "enable verbose logging")
 	flag.StringVar(&resourceBlock, "b", "default", "type of resource block")
-	flag.StringVar(&outputFile, "o", "extracted.tf", "output file for extracted resource blocks")
 }
 
 func main() {
@@ -76,14 +75,18 @@ func main() {
 			}
 		}
 	case "extract":
-		ExtractResourcesToFile(resourceHashMap, resourceBlock, outputFile)
+		ExtractResourcesToFile(resourceHashMap, resourceBlock, fileName)
 	}
 
 	logger.Info("Parsing completed")
 }
 
-func ExtractResourcesToFile(resourceMap map[string]interface{}, resourceBlock string, outputFile string) error {
-	file, err := os.Create(outputFile)
+func ExtractResourcesToFile(resourceMap map[string]interface{}, resourceBlock string, fileName string) error {
+	logger.Infof("Extracting file from %v", fileName)
+	var targetDir string = filepath.Dir(fileName)
+	var targetFile string = targetDir + "/" + resourceBlock + ".tf"
+
+	file, err := os.Create(targetFile)
 	if err != nil {
 		logger.Errorf("Err is: %v", err)
 		return err
@@ -197,17 +200,21 @@ func RetrieveResourceBlocks(lines []string) map[string]interface{} {
 		if !parsingResource {
 			if strings.Contains(lines[i], "{") {
 				startLine = i
-				bracketValue++
 				parsingResource = true
 				resourceType, resourceName = DetermineResource(lines[i])
 			}
-			continue
+
+			if !parsingResource {
+				continue
+			}
 		}
 
 		for j := 0; j < len(lines[i]); j++ {
 			if lines[i][j] == '{' {
 				bracketValue++
-			} else if lines[i][j] == '}' {
+			}
+
+			if lines[i][j] == '}' {
 				bracketValue--
 			}
 		}

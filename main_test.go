@@ -12,7 +12,6 @@ var (
 	originalFileName      string   = fileName
 	originalVerboseLevel  bool     = verboseLevel
 	originalResourceBlock string   = resourceBlock
-	originalOutputFile    string   = outputFile
 	originalOsArgs        []string = os.Args
 )
 
@@ -24,9 +23,15 @@ func GlobalVarsTeardown() {
 	verboseLevel = originalVerboseLevel
 	resourceBlock = originalResourceBlock
 	resourceHashMap = map[string]interface{}{}
-	outputFile = originalOutputFile
 	os.Args = originalOsArgs
 	logger = logrus.New()
+}
+
+// FileTeardown removes any file that is created during the unit test
+func FileTeardown(fileName string) {
+	if _, err := os.Stat(fileName); err == nil {
+		os.Remove(fileName)
+	}
 }
 
 func TestCheckValidExtensionInvalid(t *testing.T) {
@@ -204,13 +209,15 @@ func TestRetrieveResourceBlocks(t *testing.T) {
 
 func TestExtractResourcesToFile(t *testing.T) {
 	defer GlobalVarsTeardown()
+	defer FileTeardown("test/locals.tf")
+
 	content, _ := ReadFileToLines("test/main.tf")
 	resourceMap := RetrieveResourceBlocks(content)
-	ExtractResourcesToFile(resourceMap, "locals", outputFile)
+	ExtractResourcesToFile(resourceMap, "locals", "test/main.tf")
 
-	_, err := os.Stat(outputFile)
+	_, err := os.Stat("test/locals.tf")
 	if err != nil {
-		t.Errorf("Expected file %v to be created, but not found", outputFile)
+		t.Errorf("Expected file %v to be created, but not found", "test/locals.tf")
 	}
 }
 
